@@ -134,6 +134,9 @@ resources:
           - 
             Endpoint: '+61469956784' # Replace with your phone number
             Protocol: sms
+          - 
+            Endpoint: 'aishwaryasmridhi@hotmail.com' # Replace with your email
+            Protocol: email
 
     MyCloudWatchAlarm:
       Type: AWS::CloudWatch::Alarm
