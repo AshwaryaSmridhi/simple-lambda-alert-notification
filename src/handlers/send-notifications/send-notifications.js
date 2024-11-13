@@ -15,28 +15,18 @@ module.exports.handler = async (event) => {
 
   const message = 'Oops! Something went wrong with the Dog Generator service.'; // Assuming the message body contains the notification content
 
-  // Send SMS notification
-  const smsParams = {
+  // Publish message to SNS topic
+  const snsParams = {
     Message: message,
-    PhoneNumber: '+61469956784', // Replace with your phone number
-    MessageAttributes: {
-      'AWS.SNS.SMS.SenderID': {
-        DataType: 'String',
-        StringValue: 'MySenderID'
-      },
-      'AWS.SNS.SMS.SMSType': {
-        DataType: 'String',
-        StringValue: 'Transactional'
-      }
-    }
+    TopicArn: process.env.SNS_TOPIC_ARN, // Ensure this environment variable is set
   };
 
   try {
-    const command = new PublishCommand(smsParams);
+    const command = new PublishCommand(snsParams);
     const result = await snsClient.send(command);
-    console.log('SMS notification sent successfully', result);
+    console.log('Notification sent successfully', result);
   } catch (error) {
-    console.error('Failed to send SMS notification', error);
+    console.error('Failed to send notification', error);
   }
 
   return {

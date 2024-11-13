@@ -8,10 +8,12 @@ provider:
   region: ap-southeast-2
   lambdaHashingVersion: 20201221
 
+plugins:
+  - serverless-iam-roles-per-function
+
 functions: 
   get-generated-dog-name:
     handler: src/handlers/get-generated-dog-name/endpoint.handler
-    role: GetGeneratedDogNameLambdaExecutionRole
     events: 
       - http: 
           path: generate/{breed}/name
@@ -19,77 +21,34 @@ functions:
           cors: true
   send-notifications: 
     handler: src/handlers/send-notifications/send-notifications.handler
-    role: SendNotificationsLambdaExecutionRole
+    iamRoleStatementsName: SendNotificationsLambdaExecutionRole
+    iamRoleStatements:
+      - Effect: "Allow"        
+        Action:
+          - sns:Publish        
+        Resource: "*"
+
     environment: 
-      SNS_TOPIC_ARN: { Ref: MyErrorSNSTopic }
+      SNS_TOPIC_ARN: { Ref: MyNotificationSNSTopic }
+
     events: 
       - sqs:
           arn:
             Fn::GetAtt: [MyErrorSQSQueue, Arn]
           batchSize: 1
+          enabled: true
+      - sqs:
+          arn:
+            Fn::GetAtt: [MyErrorDLQ, Arn]
+          batchSize: 1
+          enabled: false
 
 package:
   exclude:
     - node_modules/aws-sdk/**
 
 resources: 
-  Resources:
-    GetGeneratedDogNameLambdaExecutionRole:
-      Type: AWS::IAM::Role
-      Properties:
-        AssumeRolePolicyDocument:
-          Version: "2012-10-17"
-          Statement:
-            - Effect: "Allow"
-              Principal:
-                Service: 
-                  - lambda.amazonaws.com
-              Action: 
-                - sts:AssumeRole
-        Policies:
-          - PolicyName: GetGeneratedDogNameLambdaExecutionPolicy
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: "Allow"
-                  Action:
-                    - "logs:CreateLogGroup"
-                    - "logs:CreateLogStream"
-                    - "logs:PutLogEvents"
-                  Resource: "*"
-
-    SendNotificationsLambdaExecutionRole:
-      Type: AWS::IAM::Role
-      Properties:
-        AssumeRolePolicyDocument:
-          Version: "2012-10-17"
-          Statement:
-            - Effect: "Allow"
-              Principal:
-                Service: 
-                  - lambda.amazonaws.com
-              Action: 
-                - sts:AssumeRole
-        Policies:
-          - PolicyName: SendNotificationsLambdaExecutionPolicy
-            PolicyDocument:
-              Version: "2012-10-17"
-              Statement:
-                - Effect: "Allow"
-                  Action:
-                    - "logs:CreateLogGroup"
-                    - "logs:CreateLogStream"
-                    - "logs:PutLogEvents"
-                    - "sns:Publish"
-                    - "sqs:ReceiveMessage"
-                    - "sqs:DeleteMessage"
-                    - "sqs:GetQueueAttributes"
-                    - "sqs:GetQueueUrl"
-                  Resource: 
-                    - Fn::GetAtt: [MyErrorSQSQueue, Arn]
-                    - Fn::GetAtt: [MyErrorDLQ, Arn]
-                    - "arn:aws:sns:ap-southeast-2:*:*"
-                    - "arn:aws:sns:*:*:+*" 
+  Resources: 
     MyErrorSQSQueue:
       Type: AWS::SQS::Queue
       Properties: 
@@ -131,6 +90,18 @@ resources:
             Endpoint:
               Fn::GetAtt: [MyErrorSQSQueue, Arn]
             Protocol: sqs
+          - 
+            Endpoint: '+61469956784' # Replace with your phone number
+            Protocol: sms
+          - 
+            Endpoint: 'aishwaryasmridhi@hotmail.com' # Replace with your email
+            Protocol: email
+    
+    MyNotificationSNSTopic:
+      Type: AWS::SNS::Topic
+      Properties: 
+        TopicName: '${self:service}-${self:provider.stage}-MyNotificationSNSTopic'
+        Subscription:
           - 
             Endpoint: '+61469956784' # Replace with your phone number
             Protocol: sms
